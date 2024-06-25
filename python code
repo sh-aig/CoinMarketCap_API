@@ -1,0 +1,39 @@
+from requests import Request, Session
+from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
+import json
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest'
+parameters = {
+    'start': '1',
+    'limit': '15',
+    'convert': 'USD'
+}
+headers = {
+    'Accepts': 'application/json',
+    'X-CMC_PRO_API_KEY': 'bc28380e-39d7-4f6a-81c1-30d19d6e30e1',
+}
+
+session = Session()
+session.headers.update(headers)
+
+try:
+    response = session.get(url, params=parameters)
+    data = json.loads(response.text)
+    #print(data)
+except (ConnectionError, Timeout, TooManyRedirects) as e:
+    print(e)
+
+df = pd.json_normalize(data['data'])
+df1 = df.groupby('name', sort=False)[['quote.USD.percent_change_1h','quote.USD.percent_change_24h','quote.USD.percent_change_7d','quote.USD.percent_change_30d','quote.USD.percent_change_60d','quote.USD.percent_change_90d']].mean()
+df1 = df1.stack()
+df1 = df1.to_frame(name='values')
+#print(df3.count())
+index = pd.Index(range(90))
+df1 = df1.reset_index()
+df1 = df1.rename(columns={'level_1': 'percent_change'})
+df1['percent_change'] = df1['percent_change'].replace(['quote.USD.percent_change_1h','quote.USD.percent_change_24h','quote.USD.percent_change_7d','quote.USD.percent_change_30d','quote.USD.percent_change_60d','quote.USD.percent_change_90d'],['1h','24h','7d','30d','60d','90d'])
+sns.catplot(x='percent_change', y='values', hue='name', data=df1, kind='point')
+plt.show()
